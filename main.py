@@ -243,7 +243,7 @@ def predictGesturesD(image, fingers_statuses, count, process_result, draw=True):
                 send_lst = []
                 send_lst.append(send)
     if hands_gestures[hand_label] == "UNKNOWN":
-        send = "N"
+        send = "1"
         send_lst = []
         send_lst.append(send)
     send_abs = ""
@@ -428,7 +428,7 @@ def first_click():
     option2.place(x=180,y=200)
 
     option3 = Button(frame1, text="Drive Mode", font=('arial bold', 18), fg="#000000", bg="#00b4d8", activebackground="#000000", activeforeground="#00b4d8", command=lambda: asyncio.run(recognizeGesturesModeD()))
-    option3.place(x=140,y=320)
+    option3.place(x=160,y=320)
 
 def info():
     os.system('start Usage.docx')
