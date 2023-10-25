@@ -12,6 +12,7 @@ from keras.src.saving.saving_api import load_model
 import numpy as np
 import os
 
+
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(
     static_image_mode=True, max_num_hands=1, min_detection_confidence=0.5
@@ -87,55 +88,85 @@ def countFingers(image, process_result):
         for tip_index in fingers_tips_ids:
             finger_name = tip_index.name.split("_")[0]
             if (
-                (hand_landmarks.landmark[tip_index - 3].y
-                - hand_landmarks.landmark[tip_index].y) > 0.02 
-            ):
+                hand_landmarks.landmark[tip_index - 3].y
+                - hand_landmarks.landmark[tip_index].y
+            ) > 0.02:
                 fingers_statuses[finger_name] = True
                 count[hand_label] += 1
         if (
-            (hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP - 3].y
-            - hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP].y) > 0.06 and count[hand_label] == 1
-        ):
+            hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP - 3].y
+            - hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP].y
+        ) > 0.06 and count[hand_label] == 1:
             fingers_statuses["INDEX"] = True
             point_straight[hand_label] += 1
         if hand_label == "RIGHT" and (thumb_mcp_x - thumb_tip_x > 0.052):
             fingers_statuses["THUMB"] = True
             count[hand_label] += 1
-        if hand_label == "RIGHT" and (thumb_mcp_y - thumb_tip_y > 0.09) and count[hand_label] == 0:
+        if (
+            hand_label == "RIGHT"
+            and (thumb_mcp_y - thumb_tip_y > 0.09)
+            and count[hand_label] == 0
+        ):
             fingers_statuses["THUMB"] = True
             count_thumb_up[hand_label] += 1
-        elif hand_label == "RIGHT" and (thumb_tip_y - thumb_mcp_y > 0.09) and count[hand_label] == 0:
+        elif (
+            hand_label == "RIGHT"
+            and (thumb_tip_y - thumb_mcp_y > 0.09)
+            and count[hand_label] == 0
+        ):
             fingers_statuses["THUMB"] = True
             count_thumb_down[hand_label] += 1
-        if hand_label == "RIGHT" and (index_mcp_x - index_tip_x > 0.07) and count[hand_label] == 1:
+        if (
+            hand_label == "RIGHT"
+            and (index_mcp_x - index_tip_x > 0.07)
+            and count[hand_label] == 1
+        ):
             fingers_statuses["INDEX"] = True
             point_left[hand_label] += 1
-        elif hand_label == "RIGHT" and (index_tip_x - index_mcp_x > 0.07) and count[hand_label] == 1:
+        elif (
+            hand_label == "RIGHT"
+            and (index_tip_x - index_mcp_x > 0.07)
+            and count[hand_label] == 1
+        ):
             fingers_statuses["INDEX"] = True
             point_right[hand_label] += 1
-    return output_image, fingers_statuses, count, count_thumb_up, count_thumb_down, point_left, point_right, point_straight 
+    return (
+        output_image,
+        fingers_statuses,
+        count,
+        count_thumb_up,
+        count_thumb_down,
+        point_left,
+        point_right,
+        point_straight,
+    )
 
 
-def predictGestures1(image, fingers_statuses, count, count_thumb_up, count_thumb_down, process_result, point_left, point_right, point_straight, draw=True):
+def predictGestures1(
+    image,
+    fingers_statuses,
+    count,
+    count_thumb_up,
+    count_thumb_down,
+    process_result,
+    point_left,
+    point_right,
+    point_straight,
+    draw=True,
+):
     output_image = image.copy()
     hand_label = "RIGHT"
     hands_gestures = {"RIGHT": "UNKNOWN"}
     color = (0, 0, 255)
     ang = getDegress(process_result)
-    send_lst = [] 
-    if (
-        count_thumb_up[hand_label] == 1
-        and fingers_statuses["THUMB"]
-    ):
+    send_lst = []
+    if count_thumb_up[hand_label] == 1 and fingers_statuses["THUMB"]:
         hands_gestures[hand_label] = "LIKE"
         color = (0, 255, 0)
         send = "V"
         send_lst = []
-        send_lst.append(send) 
-    elif (
-        count_thumb_down[hand_label] == 1
-        and fingers_statuses["THUMB"]
-    ):
+        send_lst.append(send)
+    elif count_thumb_down[hand_label] == 1 and fingers_statuses["THUMB"]:
         hands_gestures[hand_label] = "DISLIKE"
         color = (0, 255, 0)
         send = "Z"
@@ -152,28 +183,19 @@ def predictGestures1(image, fingers_statuses, count, count_thumb_up, count_thumb
         send = "Y"
         send_lst = []
         send_lst.append(send)
-    elif (
-        point_left[hand_label] == 1
-        and fingers_statuses["INDEX"] 
-    ):
+    elif point_left[hand_label] == 1 and fingers_statuses["INDEX"]:
         hands_gestures[hand_label] = "POINT LEFT"
         color = (0, 255, 0)
         send = "L"
         send_lst = []
         send_lst.append(send)
-    elif (
-        point_right[hand_label] == 1
-        and fingers_statuses["INDEX"]
-    ):
+    elif point_right[hand_label] == 1 and fingers_statuses["INDEX"]:
         hands_gestures[hand_label] = "POINT RIGHT"
         color = (0, 255, 0)
         send = "R"
         send_lst = []
         send_lst.append(send)
-    elif (
-        point_straight[hand_label] == 1
-        and fingers_statuses["INDEX"]
-    ):
+    elif point_straight[hand_label] == 1 and fingers_statuses["INDEX"]:
         hands_gestures[hand_label] = "POINT STRAIGHT"
         color = (0, 255, 0)
         send = "T"
@@ -204,31 +226,32 @@ def predictGesturesD(image, fingers_statuses, count, process_result, draw=True):
     hands_gestures = {"RIGHT": "UNKNOWN"}
     color = (0, 0, 255)
     ang = getDegress(process_result)
-    send_lst = [] 
-    ang_comparison = {(-60, -55): "A",
-                      (-55, -50): "B",
-                      (-50, -45): "C",
-                      (-45, -40): "D",
-                      (-40, -35): "E",
-                      (-35, -30): "F",
-                      (-30, -25): "G",
-                      (-25, -20): "H",
-                      (-20, -15): "I",
-                      (-15, -10): "K",
-                      (-10, -5): "L",
-                      (-5, 0): "M",
-                      (0, 5): "N",
-                      (5, 10): "O",
-                      (10, 15): "P",
-                      (15, 20): "Q",
-                      (20, 25): "V",
-                      (25, 30): "S",
-                      (30, 35): "U",
-                      (35, 40): "R",
-                      (40, 45): "X",
-                      (45, 50): "Y",
-                      (50, 55): "J",
-                      (55, 60): "Z"
+    send_lst = []
+    ang_comparison = {
+        (-60, -55): "A",
+        (-55, -50): "B",
+        (-50, -45): "C",
+        (-45, -40): "D",
+        (-40, -35): "E",
+        (-35, -30): "F",
+        (-30, -25): "G",
+        (-25, -20): "H",
+        (-20, -15): "I",
+        (-15, -10): "K",
+        (-10, -5): "L",
+        (-5, 0): "M",
+        (0, 5): "N",
+        (5, 10): "O",
+        (10, 15): "P",
+        (15, 20): "Q",
+        (20, 25): "V",
+        (25, 30): "S",
+        (30, 35): "U",
+        (35, 40): "R",
+        (40, 45): "X",
+        (45, 50): "Y",
+        (50, 55): "J",
+        (55, 60): "Z",
     }
     if (
         count[hand_label] == 2
@@ -237,7 +260,7 @@ def predictGesturesD(image, fingers_statuses, count, process_result, draw=True):
     ):
         hands_gestures[hand_label] = "GUN SIGN"
         color = (0, 255, 0)
-        for k in ang_comparison.keys(): 
+        for k in ang_comparison.keys():
             if k[0] < int(ang) < k[1]:
                 send = ang_comparison[k]
                 send_lst = []
@@ -257,7 +280,7 @@ def predictGesturesD(image, fingers_statuses, count, process_result, draw=True):
             10,
             color,
             5,
-            ) 
+        )
     return output_image, hands_gestures, send_abs
 
 
@@ -272,14 +295,37 @@ async def recognizeGesturesMode1():
             frame, process_result = DetectandDrawHandsLandmarks(frame, hands_videos)
             send_lst = []
             if process_result.multi_hand_landmarks:
-                frame, finger_statuses, count, count_thumb_up, count_thumb_down, point_left, point_right, point_straight = countFingers(frame, process_result)
-                frame, gestures, send = predictGestures1(frame, finger_statuses, count, count_thumb_up, count_thumb_down, process_result, point_left, point_right, point_straight)
+                (
+                    frame,
+                    finger_statuses,
+                    count,
+                    count_thumb_up,
+                    count_thumb_down,
+                    point_left,
+                    point_right,
+                    point_straight,
+                ) = countFingers(frame, process_result)
+                frame, gestures, send = predictGestures1(
+                    frame,
+                    finger_statuses,
+                    count,
+                    count_thumb_up,
+                    count_thumb_down,
+                    process_result,
+                    point_left,
+                    point_right,
+                    point_straight,
+                )
                 send_lst = []
                 send_lst.append(send)
             cv2.imshow("Mode 1", frame)
             send_abs = ""
             send_abs = send_abs.join(send_lst)
-            await client.write_gatt_char(data=bytes(send_abs, encoding="utf8"), char_specifier=characteristic, response=True)  
+            await client.write_gatt_char(
+                data=bytes(send_abs, encoding="utf8"),
+                char_specifier=characteristic,
+                response=True,
+            )
             print(send_abs)
             k = cv2.waitKey(1) & 0xFF
             if k == 27:
@@ -295,9 +341,9 @@ async def recognizeGesturesMode1():
 
 async def recognizeGesturesMode2():
     global hands, mp_hands, mp_drawing, address, camera_video
-    model = load_model('mp_hand_gesture')
-    f = open('gesture.names', 'r')
-    classNames = f.read().split('\n')
+    model = load_model("mp_hand_gesture")
+    f = open("gesture.names", "r")
+    classNames = f.read().split("\n")
     f.close()
     print(classNames)
     async with BleakClient(address) as client:
@@ -308,7 +354,7 @@ async def recognizeGesturesMode2():
             frame1, _ = DetectandDrawHandsLandmarks(frame, hands_videos)
             framergb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             result = hands.process(framergb)
-            className = ''
+            className = ""
             send = []
             if result.multi_hand_landmarks:
                 landmarks = []
@@ -321,16 +367,17 @@ async def recognizeGesturesMode2():
                     classID = np.argmax(prediction)
                     className = classNames[classID]
                     send_lst_c = []
-                    classNamedict = {'okay':"O",
-                                    'peace': "P", 
-                                    'thumbs up': "U", 
-                                    'thumbs down': "D",
-                                    'call me': "C", 
-                                    'stop':"S", 
-                                    'rock':"Y",
-                                    'live long':"X", 
-                                    'fist':"J", 
-                                    'smile':"M"
+                    classNamedict = {
+                        "okay": "O",
+                        "peace": "P",
+                        "thumbs up": "U",
+                        "thumbs down": "D",
+                        "call me": "C",
+                        "stop": "S",
+                        "rock": "Y",
+                        "live long": "X",
+                        "fist": "J",
+                        "smile": "M",
                     }
                     if className in classNamedict:
                         send1 = classNamedict[className]
@@ -340,11 +387,23 @@ async def recognizeGesturesMode2():
                     send2 = send2.join(send_lst_c)
                     send = []
                     send.append(send2)
-            cv2.putText(frame1, className.upper(), (10, 100), cv2.FONT_HERSHEY_PLAIN, 10, (0,255,0) ,5)
-            cv2.imshow("Mode 2", frame1) 
+            cv2.putText(
+                frame1,
+                className.upper(),
+                (10, 100),
+                cv2.FONT_HERSHEY_PLAIN,
+                10,
+                (0, 255, 0),
+                5,
+            )
+            cv2.imshow("Mode 2", frame1)
             send_abs = ""
             send_abs = send_abs.join(send)
-            await client.write_gatt_char(data=bytes(send_abs, encoding="utf8"), char_specifier=characteristic, response=True) 
+            await client.write_gatt_char(
+                data=bytes(send_abs, encoding="utf8"),
+                char_specifier=characteristic,
+                response=True,
+            )
             print(send_abs)
             k = cv2.waitKey(1) & 0xFF
             if k == 27:
@@ -369,14 +428,29 @@ async def recognizeGesturesModeD():
             frame, process_result = DetectandDrawHandsLandmarks(frame, hands_videos)
             send_lst = []
             if process_result.multi_hand_landmarks:
-                frame, finger_statuses, count, count_thumb_up, count_thumb_down, point_left, point_right, point_straight = countFingers(frame, process_result)
-                frame, gestures, send = predictGesturesD(frame, finger_statuses, count, process_result)
+                (
+                    frame,
+                    finger_statuses,
+                    count,
+                    count_thumb_up,
+                    count_thumb_down,
+                    point_left,
+                    point_right,
+                    point_straight,
+                ) = countFingers(frame, process_result)
+                frame, gestures, send = predictGesturesD(
+                    frame, finger_statuses, count, process_result
+                )
                 send_lst = []
                 send_lst.append(send)
             cv2.imshow("Drive Mode", frame)
             send_abs = ""
             send_abs = send_abs.join(send_lst)
-            await client.write_gatt_char(data=bytes(send_abs, encoding="utf8"), char_specifier=characteristic, response=True)  
+            await client.write_gatt_char(
+                data=bytes(send_abs, encoding="utf8"),
+                char_specifier=characteristic,
+                response=True,
+            )
             print(send_abs)
             k = cv2.waitKey(1) & 0xFF
             if k == 27:
@@ -388,7 +462,6 @@ async def recognizeGesturesModeD():
             if k == 49:
                 cv2.destroyWindow("Drive Mode")
                 await recognizeGesturesMode1()
-            
 
 
 def getDegress(process_result):
@@ -399,11 +472,16 @@ def getDegress(process_result):
         b1 = hand_landmark.landmark[mp_hands.HandLandmark.INDEX_FINGER_MCP].x
         b2 = hand_landmark.landmark[mp_hands.HandLandmark.INDEX_FINGER_MCP].y
         c1 = hand_landmark.landmark[mp_hands.HandLandmark.INDEX_FINGER_MCP].x
-        c2 = hand_landmark.landmark[mp_hands.HandLandmark.INDEX_FINGER_MCP].y-0.05
-        a = (a1,a2)
-        b = (b1,b2)
-        c = (c1,c2)
-        ang = round(math.degrees(math.atan2(c[1]-b[1], c[0]-b[0]) - math.atan2(a[1]-b[1], a[0]-b[0]))) 
+        c2 = hand_landmark.landmark[mp_hands.HandLandmark.INDEX_FINGER_MCP].y - 0.05
+        a = (a1, a2)
+        b = (b1, b2)
+        c = (c1, c2)
+        ang = round(
+            math.degrees(
+                math.atan2(c[1] - b[1], c[0] - b[0])
+                - math.atan2(a[1] - b[1], a[0] - b[0])
+            )
+        )
         anglelst = []
         anglelst.append(str(ang))
     ang = " "
@@ -419,30 +497,64 @@ def first_click():
     img = ImageTk.PhotoImage(img)
     label = Label(frame1, image=img)
     label.image = img
-    label.place(x=0,y=0)
+    label.place(x=0, y=0)
 
-    option1 = Button(frame1, text="Mode 1", font=('arial bold', 18), fg="#000000", bg="#00b4d8", activebackground="#000000", activeforeground="#00b4d8", command=lambda: asyncio.run(recognizeGesturesMode1()))
-    option1.place(x=180,y=80)
+    option1 = Button(
+        frame1,
+        text="Mode 1",
+        font=("arial bold", 18),
+        fg="#000000",
+        bg="#00b4d8",
+        activebackground="#000000",
+        activeforeground="#00b4d8",
+        command=lambda: asyncio.run(recognizeGesturesMode1()),
+    )
+    option1.place(x=180, y=80)
 
-    option2 = Button(frame1, text="Mode 2", font=('arial bold', 18), fg="#000000", bg="#00b4d8", activebackground="#000000", activeforeground="#00b4d8", command=lambda: asyncio.run(recognizeGesturesMode2()))
-    option2.place(x=180,y=200)
+    option2 = Button(
+        frame1,
+        text="Mode 2",
+        font=("arial bold", 18),
+        fg="#000000",
+        bg="#00b4d8",
+        activebackground="#000000",
+        activeforeground="#00b4d8",
+        command=lambda: asyncio.run(recognizeGesturesMode2()),
+    )
+    option2.place(x=180, y=200)
 
-    option3 = Button(frame1, text="Drive Mode", font=('arial bold', 18), fg="#000000", bg="#00b4d8", activebackground="#000000", activeforeground="#00b4d8", command=lambda: asyncio.run(recognizeGesturesModeD()))
-    option3.place(x=160,y=320)
+    option3 = Button(
+        frame1,
+        text="Drive Mode",
+        font=("arial bold", 18),
+        fg="#000000",
+        bg="#00b4d8",
+        activebackground="#000000",
+        activeforeground="#00b4d8",
+        command=lambda: asyncio.run(recognizeGesturesModeD()),
+    )
+    option3.place(x=160, y=320)
+
 
 def info():
-    os.system('start Usage.docx')
+    os.system("start Usage.docx")
 
 
 async def Scan():
-    global devices_names,tup
+    global devices_names, tup
     devices = await BleakScanner.discover()
     for d in devices:
         print(d)
-        devices_names.append(d.name)
+        devices_names.append(d)
     tup = tuple(devices_names)
     var1.set(1)
-    label2 = Label(root, text=f"Found {len(devices_names)} devices", font=('arial bold', 8), fg="#000000", bg="#00b4d8")
+    label2 = Label(
+        root,
+        text=f"Found {len(devices_names)} devices",
+        font=("arial bold", 8),
+        fg="#000000",
+        bg="#00b4d8",
+    )
     label2.place(x=180, y=160)
 
 
@@ -450,7 +562,13 @@ def Connect():
     global address
     address = combobox.get()
     if address == "":
-        label2 = Label(root, text="Please choose a device!", font=('arial bold', 8), fg="#000000", bg="#00b4d8")
+        label2 = Label(
+            root,
+            text="Please choose a device!",
+            font=("arial bold", 8),
+            fg="#000000",
+            bg="#00b4d8",
+        )
         label2.place(x=180, y=160)
     else:
         address = address[0:17]
@@ -467,36 +585,63 @@ root.iconbitmap("robot.ico")
 img = Image.open("KCbot.jpg")
 img = ImageTk.PhotoImage(img)
 label1 = Label(root, image=img)
-label1.place(x=0,y=0)
+label1.place(x=0, y=0)
 
 
 var1 = tk.IntVar()
 var2 = tk.IntVar()
 scanbutton_icon = tk.PhotoImage(file="bluetooth.png")
-scanbutton_icon = scanbutton_icon.subsample(24,24)
+scanbutton_icon = scanbutton_icon.subsample(24, 24)
 scanbutton = Button(root, image=scanbutton_icon, command=lambda: asyncio.run(Scan()))
 scanbutton.place(x=230, y=80)
 
 
 scanbutton.wait_variable(var1)
-connectbutton = Button(root, text="Connect", font=('arial bold', 8), fg="#000000", bg="#00b4d8", activebackground="#000000", activeforeground="#00b4d8", command=Connect)
+connectbutton = Button(
+    root,
+    text="Connect",
+    font=("arial bold", 8),
+    fg="#000000",
+    bg="#00b4d8",
+    activebackground="#000000",
+    activeforeground="#00b4d8",
+    command=Connect,
+)
 connectbutton.place(x=290, y=120)
 
 
 selected_device = tk.StringVar()
 combobox = ttk.Combobox(root, textvariable=selected_device)
-combobox['values']=tup
-combobox['state']='readonly'
-combobox.place(x=140,y=120)
+combobox["values"] = tup
+combobox["state"] = "normal"
+combobox.place(x=140, y=120)
 
 
 connectbutton.wait_variable(var2)
-webcambutton = Button(root, text="Access Webcam", font=('arial bold', 18), fg="#000000", bg="#00b4d8", activebackground="#000000", activeforeground="#00b4d8", command=first_click)
-webcambutton.place(x=140,y=200)
+webcambutton = Button(
+    root,
+    text="Access Webcam",
+    font=("arial bold", 18),
+    fg="#000000",
+    bg="#00b4d8",
+    activebackground="#000000",
+    activeforeground="#00b4d8",
+    command=first_click,
+)
+webcambutton.place(x=140, y=200)
 
 
-infobutton = Button(root, text="How to use", font=('arial bold', 18), fg="#000000", bg="#00b4d8", activebackground="#000000", activeforeground="#00b4d8", command=info)
-infobutton.place(x=165,y=320)
+infobutton = Button(
+    root,
+    text="How to use",
+    font=("arial bold", 18),
+    fg="#000000",
+    bg="#00b4d8",
+    activebackground="#000000",
+    activeforeground="#00b4d8",
+    command=info,
+)
+infobutton.place(x=165, y=320)
 
 
 root.mainloop()
