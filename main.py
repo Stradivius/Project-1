@@ -57,12 +57,12 @@ def DetectandDrawHandsLandmarks(image, hands):
 
 def countFingers(image, process_result):
     output_image = image.copy()
-    count = {"RIGHT": 0}
-    count_thumb_down = {"RIGHT": 0}
-    count_thumb_up = {"RIGHT": 0}
-    point_straight = {"RIGHT": 0}
-    point_left = {"RIGHT": 0}
-    point_right = {"RIGHT": 0}
+    count = {"RIGHT": 0, "LEFT": 0}
+    count_thumb_down = {"RIGHT": 0, "LEFT": 0}
+    count_thumb_up = {"RIGHT": 0, "LEFT": 0}
+    point_straight = {"RIGHT": 0, "LEFT": 0}
+    point_left = {"RIGHT": 0, "LEFT": 0}
+    point_right = {"RIGHT": 0, "LEFT": 0}
     fingers_tips_ids = [
         mp_hands.HandLandmark.INDEX_FINGER_TIP,
         mp_hands.HandLandmark.MIDDLE_FINGER_TIP,
@@ -70,14 +70,19 @@ def countFingers(image, process_result):
         mp_hands.HandLandmark.PINKY_TIP,
     ]
     fingers_statuses = {
-        "THUMB": False,
-        "INDEX": False,
-        "MIDDLE": False,
-        "RING": False,
-        "PINKY": False,
+        "RIGHT_THUMB": False,
+        "RIGHT_INDEX": False,
+        "RIGHT_MIDDLE": False,
+        "RIGHT_RING": False,
+        "RIGHT_PINKY": False,
+        "LEFT_THUMB": False,
+        "LEFT_INDEX": False,
+        "LEFT_MIDDLE": False,
+        "LEFT_RING": False,
+        "LEFT_PINKY": False,
     }
     for hand_index, hand_info in enumerate(process_result.multi_handedness):
-        hand_label = "RIGHT"
+        hand_label = str(hand_info.classification[0].label)
         hand_landmarks = process_result.multi_hand_landmarks[hand_index]
         thumb_tip_y = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP].y
         thumb_mcp_y = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP - 2].y
@@ -91,45 +96,46 @@ def countFingers(image, process_result):
                 hand_landmarks.landmark[tip_index - 3].y
                 - hand_landmarks.landmark[tip_index].y
             ) > 0.02:
-                fingers_statuses[finger_name] = True
-                count[hand_label] += 1
+                fingers_statuses[hand_label.upper() + "_" + finger_name] = True
+                count[hand_label.upper()] += 1
         if (
             hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP - 3].y
             - hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP].y
-        ) > 0.06 and count[hand_label] == 1:
-            fingers_statuses["INDEX"] = True
-            point_straight[hand_label] += 1
-        if hand_label == "RIGHT" and (thumb_mcp_x - thumb_tip_x > 0.052):
-            fingers_statuses["THUMB"] = True
-            count[hand_label] += 1
+        ) > 0.06 and count[hand_label.upper()] == 1:
+            fingers_statuses[hand_label.upper() + "_INDEX"] = True
+            point_straight[hand_label.upper()] += 1
+        if (hand_label.upper() == "RIGHT" and (thumb_mcp_x - thumb_tip_x > 0.052)) or (hand_label.upper() == "LEFT" and (thumb_tip_x - thumb_mcp_x)) > 0.052:
+            fingers_statuses[hand_label.upper() + "_THUMB"] = True
+            count[hand_label.upper()] += 1
         if (
-            hand_label == "RIGHT"
-            and (thumb_mcp_y - thumb_tip_y > 0.09)
-            and count[hand_label] == 0
+            (thumb_mcp_y - thumb_tip_y > 0.09)
+            and count[hand_label.upper()] == 0
         ):
-            fingers_statuses["THUMB"] = True
-            count_thumb_up[hand_label] += 1
+            fingers_statuses[hand_label.upper() + "_THUMB"] = True
+            count_thumb_up[hand_label.upper()] += 1
         elif (
-            hand_label == "RIGHT"
-            and (thumb_tip_y - thumb_mcp_y > 0.09)
-            and count[hand_label] == 0
+            (thumb_tip_y - thumb_mcp_y > 0.09)
+            and count[hand_label.upper()] == 0
         ):
-            fingers_statuses["THUMB"] = True
-            count_thumb_down[hand_label] += 1
+            fingers_statuses[hand_label.upper() + "_THUMB"] = True
+            count_thumb_down[hand_label.upper()] += 1
         if (
-            hand_label == "RIGHT"
+            hand_label.upper() == "RIGHT"
             and (index_mcp_x - index_tip_x > 0.07)
-            and count[hand_label] == 1
-        ):
-            fingers_statuses["INDEX"] = True
-            point_left[hand_label] += 1
+            and count[hand_label.upper()] == 1) or (hand_label.upper() == "RIGHT" 
+            and (index_tip_x - index_mcp_x > 0.07) 
+            and count[hand_label.upper()] == 1):
+            fingers_statuses[hand_label.upper() + "_INDEX"] = True
+            point_left[hand_label.upper()] += 1
         elif (
-            hand_label == "RIGHT"
+            hand_label.upper() == "RIGHT"
             and (index_tip_x - index_mcp_x > 0.07)
-            and count[hand_label] == 1
-        ):
-            fingers_statuses["INDEX"] = True
-            point_right[hand_label] += 1
+            and count[hand_label.upper()] == 1
+        ) or (hand_label.upper() == "LEFT"
+            and (index_mcp_x - index_tip_x > 0.07)
+            and count[hand_label.upper()] == 1):
+            fingers_statuses[hand_label.upper() + "_INDEX"] = True
+            point_right[hand_label.upper()] += 1
     return (
         output_image,
         fingers_statuses,
@@ -155,75 +161,75 @@ def predictGestures1(
     draw=True,
 ):
     output_image = image.copy()
-    hand_label = "RIGHT"
-    hands_gestures = {"RIGHT": "UNKNOWN"}
-    color = (0, 0, 255)
-    ang = getDegress(process_result)
-    send_lst = []
-    if count_thumb_up[hand_label] == 1 and fingers_statuses["THUMB"]:
-        hands_gestures[hand_label] = "LIKE"
-        color = (0, 255, 0)
-        send = "V"
+    hands_gestures = {"RIGHT": "UNKNOWN", "LEFT": "UNKNOWN"}
+    for hand_index, hand_info in enumerate(process_result.multi_handedness):
+        hand_label = str(hand_info.classification[0].label)
+        color = (0, 0, 255)
+        ang = getDegress(process_result)
         send_lst = []
-        send_lst.append(send)
-    elif count_thumb_down[hand_label] == 1 and fingers_statuses["THUMB"]:
-        hands_gestures[hand_label] = "DISLIKE"
-        color = (0, 255, 0)
-        send = "Z"
-        send_lst = []
-        send_lst.append(send)
-    elif (
-        count[hand_label] == 3
-        and fingers_statuses["THUMB"]
-        and fingers_statuses["INDEX"]
-        and fingers_statuses["PINKY"]
-    ):
-        hands_gestures[hand_label] = "ROCK"
-        color = (0, 255, 0)
-        send = "Y"
-        send_lst = []
-        send_lst.append(send)
-    elif point_left[hand_label] == 1 and fingers_statuses["INDEX"]:
-        hands_gestures[hand_label] = "POINT LEFT"
-        color = (0, 255, 0)
-        send = "L"
-        send_lst = []
-        send_lst.append(send)
-    elif point_right[hand_label] == 1 and fingers_statuses["INDEX"]:
-        hands_gestures[hand_label] = "POINT RIGHT"
-        color = (0, 255, 0)
-        send = "R"
-        send_lst = []
-        send_lst.append(send)
-    elif point_straight[hand_label] == 1 and fingers_statuses["INDEX"]:
-        hands_gestures[hand_label] = "POINT STRAIGHT"
-        color = (0, 255, 0)
-        send = "T"
-        send_lst = []
-        send_lst.append(send)
-    if hands_gestures[hand_label] == "UNKNOWN":
-        send = "N"
-        send_lst = []
-        send_lst.append(send)
-    send_abs = ""
-    send_abs = send_abs.join(send_lst)
-    if draw:
-        cv2.putText(
-            output_image,
-            f"{hands_gestures[hand_label]}: {ang}",
-            (10, 100),
-            cv2.FONT_HERSHEY_PLAIN,
-            10,
-            color,
-            5,
-        )
+        if count_thumb_up[hand_label.upper()] == 1 and fingers_statuses[hand_label.upper() + "_THUMB"]:
+            hands_gestures[hand_label.upper()] = "LIKE"
+            color = (0, 255, 0)
+            send = "V"
+            send_lst = []
+            send_lst.append(send)
+        elif count_thumb_down[hand_label.upper()] == 1 and fingers_statuses[hand_label.upper() + "_THUMB"]:
+            hands_gestures[hand_label.upper()] = "DISLIKE"
+            color = (0, 255, 0)
+            send = "Z"
+            send_lst = []
+            send_lst.append(send)
+        elif (
+            count[hand_label.upper()] == 3
+            and fingers_statuses[hand_label.upper() + "_THUMB"]
+            and fingers_statuses[hand_label.upper() + "_INDEX"]
+            and fingers_statuses[hand_label.upper() + "_PINKY"]
+        ):
+            hands_gestures[hand_label.upper()] = "ROCK"
+            color = (0, 255, 0)
+            send = "Y"
+            send_lst = []
+            send_lst.append(send)
+        elif point_left[hand_label.upper()] == 1 and fingers_statuses[hand_label.upper() + "_INDEX"]:
+            hands_gestures[hand_label.upper()] = "POINT LEFT"
+            color = (0, 255, 0)
+            send = "L"
+            send_lst = []
+            send_lst.append(send)
+        elif point_right [hand_label.upper()] == 1 and fingers_statuses[hand_label.upper() + "_INDEX"]:  
+            hands_gestures[hand_label.upper()] = "POINT RIGHT"
+            color = (0, 255, 0)
+            send = "R"
+            send_lst = []
+            send_lst.append(send)
+        elif point_straight[hand_label.upper()] == 1 and fingers_statuses[hand_label.upper() + "_INDEX"]:
+            hands_gestures[hand_label.upper()] = "POINT STRAIGHT"
+            color = (0, 255, 0)
+            send = "T"
+            send_lst = []
+            send_lst.append(send)
+        if hands_gestures[hand_label.upper()] == "UNKNOWN":
+            send = "N"
+            send_lst = []
+            send_lst.append(send)
+        send_abs = ""
+        send_abs = send_abs.join(send_lst)
+        if draw:
+            cv2.putText(
+                output_image,
+                f"{hands_gestures[hand_label.upper()]}: {ang}",
+                (10, 100),
+                cv2.FONT_HERSHEY_PLAIN,
+                10,
+                color,
+                5,
+            )
     return output_image, hands_gestures, send_abs
 
 
 def predictGesturesD(image, fingers_statuses, count, process_result, draw=True):
     output_image = image.copy()
-    hand_label = "RIGHT"
-    hands_gestures = {"RIGHT": "UNKNOWN"}
+    hands_gestures = {"RIGHT": "UNKNOWN", "LEFT": "UNKNOWN"}
     color = (0, 0, 255)
     ang = getDegress(process_result)
     send_lst = []
@@ -253,34 +259,36 @@ def predictGesturesD(image, fingers_statuses, count, process_result, draw=True):
         (50, 55): "J",
         (55, 60): "Z",
     }
-    if (
-        count[hand_label] == 2
-        and fingers_statuses["MIDDLE"]
-        and fingers_statuses["INDEX"]
-    ):
-        hands_gestures[hand_label] = "GUN SIGN"
-        color = (0, 255, 0)
-        for k in ang_comparison.keys():
-            if k[0] < int(ang) < k[1]:
-                send = ang_comparison[k]
-                send_lst = []
-                send_lst.append(send)
-    if hands_gestures[hand_label] == "UNKNOWN":
-        send = "1"
-        send_lst = []
-        send_lst.append(send)
-    send_abs = ""
-    send_abs = send_abs.join(send_lst)
-    if draw:
-        cv2.putText(
-            output_image,
-            f"{hands_gestures[hand_label]}: {ang}",
-            (10, 100),
-            cv2.FONT_HERSHEY_PLAIN,
-            10,
-            color,
-            5,
-        )
+    for hand_index, hand_info in enumerate(process_result.multi_handedness):
+        hand_label = str(hand_info.classification[0].label)
+        if (
+            count[hand_label.upper()] == 2
+            and fingers_statuses[hand_label.upper()+"_MIDDLE"]
+            and fingers_statuses[hand_label.upper()+"_INDEX"]
+        ):
+            hands_gestures[hand_label.upper()] = "GUN SIGN"
+            color = (0, 255, 0)
+            for k in ang_comparison.keys():
+                if k[0] < int(ang) < k[1]:
+                    send = ang_comparison[k]
+                    send_lst = []
+                    send_lst.append(send)
+        if hands_gestures[hand_label.upper()] == "UNKNOWN":
+            send = "1"
+            send_lst = []
+            send_lst.append(send)
+        send_abs = ""
+        send_abs = send_abs.join(send_lst)
+        if draw:
+            cv2.putText(
+                output_image,
+                f"{hands_gestures[hand_label.upper()]}: {ang}",
+                (10, 100),
+                cv2.FONT_HERSHEY_PLAIN,
+                10,
+                color,
+                5,
+            )
     return output_image, hands_gestures, send_abs
 
 
@@ -541,7 +549,7 @@ def info():
 
 
 async def Scan():
-    global devices_names, tup
+    global devices_names, tup, combobox
     devices = await BleakScanner.discover()
     for d in devices:
         print(d)
@@ -556,6 +564,11 @@ async def Scan():
         bg="#00b4d8",
     )
     label2.place(x=180, y=160)
+    selected_device = tk.StringVar()
+    combobox = ttk.Combobox(root, textvariable=selected_device)
+    combobox["values"] = tup
+    combobox["state"] = "readonly"
+    combobox.place(x=140, y=120)
 
 
 def Connect():
@@ -576,7 +589,7 @@ def Connect():
 
 
 root = tk.Tk()
-root.title("KC_bot controller by Hand Tracking")
+root.title("KCBot controller by Hand Tracking")
 root.geometry("480x470")
 root.resizable(False, False)
 root.iconbitmap("robot.ico")
@@ -608,13 +621,6 @@ connectbutton = Button(
     command=Connect,
 )
 connectbutton.place(x=290, y=120)
-
-
-selected_device = tk.StringVar()
-combobox = ttk.Combobox(root, textvariable=selected_device)
-combobox["values"] = tup
-combobox["state"] = "normal"
-combobox.place(x=140, y=120)
 
 
 connectbutton.wait_variable(var2)
