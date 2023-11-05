@@ -11,6 +11,7 @@ import math
 from keras.src.saving.saving_api import load_model
 import numpy as np
 import os
+import time
 
 
 mp_hands = mp.solutions.hands
@@ -502,7 +503,7 @@ def getDegress(process_result):
     return ang
 
 
-def MeasureDistance(process_result):
+def MeasureDistance(process_result, k):
     thumb_distance_lst = []
     index_distance_lst = []
     middle_distance_lst = []
@@ -545,6 +546,40 @@ def MeasureDistance(process_result):
     ring_distance_2 = ring_distance_2.join(ring_distance_lst)
     pinky_distance_2 = ""
     pinky_distance_2 = pinky_distance_2.join(pinky_distance_lst)
+    if k == 116:
+        with open("Thumb.txt", "w") as f:
+            f.truncate(0)
+            for i in range(1):
+                f.writelines(f"THUMB: {thumb_distance_lst}")
+    if k == 105:
+        with open("Index.txt", "w") as f:
+            f.truncate(0)
+            for i in range(1):
+                f.writelines(f"INDEX: {index_distance_lst}")
+    if k == 109:
+        with open("Middle.txt", "w") as f:
+            f.truncate(0)
+            for i in range(1):
+                f.writelines(f"MIDDLE: {middle_distance_lst}")
+    if k == 114:
+        with open("Ring.txt", "w") as f:
+            f.truncate(0)
+            for i in range(1):
+                f.writelines(f"RING: {ring_distance_lst}") 
+    if k == 112:
+        with open("Pinky.txt", "w") as f:
+            f.truncate(0)
+            for i in range(1):
+                f.writelines(f"PINKY: {pinky_distance_lst}") 
+    else:
+        try: 
+            os.remove("Thumb.txt")
+            os.remove("Index.txt")
+            os.remove("Middle.txt")
+            os.remove("Ring.txt")
+            os.remove("Pinky.txt")
+        except FileNotFoundError:
+            pass
     return (
         thumb_distance_2,
         index_distance_2,
@@ -574,7 +609,7 @@ def ShowVideoWhileMeasuring():
                 middle_distance_2,
                 ring_distance_2,
                 pinky_distance_2,
-            ) = MeasureDistance(process_result)
+            ) = MeasureDistance(process_result, 0)
             thumb_distance = thumb_distance_2
             index_distance = index_distance_2
             middle_distance = middle_distance_2
@@ -630,7 +665,33 @@ def ShowVideoWhileMeasuring():
         if k == 27:
             break
         if k == 116:
-            color_t = (0, 255, 0)
+            color_t = (0,255,0)
+            (
+                _,_,_,_,_
+            ) = MeasureDistance(process_result,116)
+        if k == 105:
+            color_i = (0,255,0)
+            (
+                _,_,_,_,_
+            ) = MeasureDistance(process_result,105)
+        if k == 109:
+            color_m = (0,255,0)
+            (
+                _,_,_,_,_
+            ) = MeasureDistance(process_result,109)
+        if k == 114:
+            color_r = (0,255,0)
+            (
+                _,_,_,_,_
+            ) = MeasureDistance(process_result,114)
+        if k == 112:
+            color_p = (0,255,0)
+            (
+                _,_,_,_,_
+            ) = MeasureDistance(process_result,112)
+        else: 
+            pass
+        
 
 
 def first_click():
