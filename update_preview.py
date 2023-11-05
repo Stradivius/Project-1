@@ -598,19 +598,19 @@ def ShowVideoWhileMeasuring():
             pinky_distance = float(pinky_distance_2)
             if os.path.exists("Thumb.txt"):
                 with open("Thumb.txt", "r") as f:
-                    thumb_distance = f.read()
+                    thumb_distance = float(f.read())
             if os.path.exists("Index.txt"):
                 with open("Index.txt", "r") as f:
-                    index_distance = f.read()
+                    index_distance = float(f.read())
             if os.path.exists("Middle.txt"):
                 with open("Middle.txt", "r") as f:
-                    middle_distance = f.read()
+                    middle_distance = float(f.read())
             if os.path.exists("Ring.txt"):
                 with open("Ring.txt", "r") as f:
-                    ring_distance = f.read()
+                    ring_distance = float(f.read())
             if os.path.exists("Pinky.txt"):
                 with open("Pinky.txt", "r") as f:
-                    pinky_distance = f.read()
+                    pinky_distance = float(f.read())
             cv2.putText(
                 frame,
                 f"THUMB: {thumb_distance}",
@@ -658,7 +658,6 @@ def ShowVideoWhileMeasuring():
             )
         cv2.imshow("Measuring", frame)
         k = cv2.waitKey(1) & 0xFF
-        print(k)
         if k == 27:
             break
         elif k == 116:
@@ -724,7 +723,159 @@ def ShowVideoWhileMeasuring():
                 pass
         else:
             pass
-        
+
+
+        if os.path.exists("Thumb.txt") and os.path.exists("Index.txt") and os.path.exists("Middle.txt") and os.path.exists("Ring.txt") and os.path.exists("Pinky.txt"):
+            if k == 32:
+                asyncio.run(recognizeGesturesMode1_with_Measurement(thumb_distance, index_distance, middle_distance, ring_distance, pinky_distance))
+        else:
+            pass
+
+
+def CustomcountFingers(image, process_result, thumb_distance, index_distance, middle_distance, ring_distance, pinky_distance):
+    output_image = image.copy()
+    count = {"RIGHT": 0, "LEFT": 0}
+    count_thumb_down = {"RIGHT": 0, "LEFT": 0}
+    count_thumb_up = {"RIGHT": 0, "LEFT": 0}
+    point_straight = {"RIGHT": 0, "LEFT": 0}
+    point_left = {"RIGHT": 0, "LEFT": 0}
+    point_right = {"RIGHT": 0, "LEFT": 0}
+    fingers_statuses = {
+        "RIGHT_THUMB": False,
+        "RIGHT_INDEX": False,
+        "RIGHT_MIDDLE": False,
+        "RIGHT_RING": False,
+        "RIGHT_PINKY": False,
+        "LEFT_THUMB": False,
+        "LEFT_INDEX": False,
+        "LEFT_MIDDLE": False,
+        "LEFT_RING": False,
+        "LEFT_PINKY": False,
+    }
+    for hand_index, hand_info in enumerate(process_result.multi_handedness):
+        hand_label = str(hand_info.classification[0].label)
+        hand_landmarks = process_result.multi_hand_landmarks[hand_index]
+        thumb_tip_x = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP].x
+        thumb_mcp_x = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_MCP].x
+        thumb_tip_y = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP].y
+        thumb_mcp_y = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_MCP].y
+        index_tip_y = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP].y
+        index_mcp_y = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_MCP].y
+        index_tip_x = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP].x
+        index_mcp_x = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_MCP].x
+        middle_tip_y = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_TIP].y
+        middle_mcp_y = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_MCP].y
+        ring_tip_y = hand_landmarks.landmark[mp_hands.HandLandmark.RING_FINGER_TIP].y
+        ring_mcp_y = hand_landmarks.landmark[mp_hands.HandLandmark.RING_FINGER_MCP].y
+        pinky_tip_y = hand_landmarks.landmark[mp_hands.HandLandmark.PINKY_TIP].y
+        pinky_mcp_y = hand_landmarks.landmark[mp_hands.HandLandmark.PINKY_MCP].y
+        if (index_mcp_y - index_tip_y > index_distance):
+            count[hand_label.upper()] += 1
+            fingers_statuses[hand_label.upper() + "_INDEX"] = True
+        if (middle_mcp_y - middle_tip_y > middle_distance):
+            count[hand_label.upper()] += 1
+            fingers_statuses[hand_label.upper() + "_MIDDLE"] = True
+        if (ring_mcp_y - ring_tip_y > ring_distance):
+            count[hand_label.upper()] += 1
+            fingers_statuses[hand_label.upper() + "_RING"] = True
+        if (pinky_mcp_y - pinky_tip_y > pinky_distance):
+            count[hand_label.upper()] += 1
+            fingers_statuses[hand_label.upper() + "_PINKY"] = True
+        if (index_mcp_y - index_tip_y) > index_distance and count[hand_label.upper()] == 1:
+            fingers_statuses[hand_label.upper() + "_INDEX"] = True
+            point_straight[hand_label.upper()] += 1
+        if (hand_label.upper() == "RIGHT" and (thumb_mcp_x - thumb_tip_x > thumb_distance)) or (
+            hand_label.upper() == "LEFT" and (thumb_tip_x - thumb_mcp_x)
+        ) > thumb_distance:
+            fingers_statuses[hand_label.upper() + "_THUMB"] = True
+            count[hand_label.upper()] += 1
+        if (thumb_mcp_y - thumb_tip_y > thumb_distance) and count[hand_label.upper()] == 0:
+            fingers_statuses[hand_label.upper() + "_THUMB"] = True
+            count_thumb_up[hand_label.upper()] += 1
+        elif (thumb_tip_y - thumb_mcp_y > thumb_distance) and count[hand_label.upper()] == 0:
+            fingers_statuses[hand_label.upper() + "_THUMB"] = True
+            count_thumb_down[hand_label.upper()] += 1
+        if (
+            hand_label.upper() == "RIGHT"
+            and (index_mcp_x - index_tip_x > index_distance)
+            and count[hand_label.upper()] == 1
+        ) or (
+            hand_label.upper() == "RIGHT"
+            and (index_tip_x - index_mcp_x > index_distance)
+            and count[hand_label.upper()] == 1
+        ):
+            fingers_statuses[hand_label.upper() + "_INDEX"] = True
+            point_left[hand_label.upper()] += 1
+        elif (
+            hand_label.upper() == "RIGHT"
+            and (index_tip_x - index_mcp_x > index_distance)
+            and count[hand_label.upper()] == 1
+        ) or (
+            hand_label.upper() == "LEFT"
+            and (index_mcp_x - index_tip_x > index_distance)
+            and count[hand_label.upper()] == 1
+        ):
+            fingers_statuses[hand_label.upper() + "_INDEX"] = True
+            point_right[hand_label.upper()] += 1
+    return (
+        output_image,
+        fingers_statuses,
+        count,
+        count_thumb_up,
+        count_thumb_down,
+        point_left,
+        point_right,
+        point_straight,
+    )
+
+
+async def recognizeGesturesMode1_with_Measurement(thumb_distance, index_distance, middle_distance, ring_distance, pinky_distance): 
+    global camera_video, address, send_abs
+    while camera_video.isOpened():
+        ret, frame = camera_video.read()
+        if not ret:
+            continue
+        frame = cv2.flip(frame, 1)
+        frame, process_result = DetectandDrawHandsLandmarks(frame, hands_videos)
+        send_lst = []
+        if process_result.multi_hand_landmarks:
+            (
+                frame,
+                finger_statuses,
+                count,
+                count_thumb_up,
+                count_thumb_down,
+                point_left,
+                point_right,
+                point_straight,
+            ) = CustomcountFingers(image = frame, process_result=process_result, thumb_distance = thumb_distance, index_distance=index_distance,middle_distance = middle_distance, ring_distance=ring_distance, pinky_distance =pinky_distance)
+            frame, gestures, send = predictGestures1(
+                frame,
+                process_result,
+                finger_statuses,
+                count,
+                count_thumb_up,
+                count_thumb_down,
+                point_left,
+                point_right,
+                point_straight,
+            )
+            send_lst = []
+            send_lst.append(send)
+        cv2.imshow("Mode 1 with Measurement", frame)
+        send_abs = ""
+        send_abs = send_abs.join(send_lst)
+        print(send_abs)
+        k = cv2.waitKey(1) & 0xFF
+        if k == 27:
+            cv2.destroyWindow("Mode 1 with Measurement")
+            break
+        if k == 50:
+            cv2.destroyWindow("Mode 1 with Measurement")
+            await recognizeGesturesMode2()
+        if k == 68:
+            cv2.destroyWindow("Mode 1 with Measurement")
+            await recognizeGesturesModeD()
 
 
 def first_click():
