@@ -36,11 +36,11 @@ address = ""
 characteristic = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 
 
-thumb_distance = 5
-index_distance = 5
-middle_distance = 5
-ring_distance = 5
-pinky_distance = 5
+thumb_distance = 5.0
+index_distance = 5.0
+middle_distance = 5.0
+ring_distance = 5.0
+pinky_distance = 5.0
 
 
 def DetectandDrawHandsLandmarks(image, hands):
@@ -503,7 +503,7 @@ def getDegress(process_result):
     return ang
 
 
-def MeasureDistance(process_result, k):
+def MeasureDistance(process_result):
     thumb_distance_lst = []
     index_distance_lst = []
     middle_distance_lst = []
@@ -545,41 +545,7 @@ def MeasureDistance(process_result, k):
     ring_distance_2 = ""
     ring_distance_2 = ring_distance_2.join(ring_distance_lst)
     pinky_distance_2 = ""
-    pinky_distance_2 = pinky_distance_2.join(pinky_distance_lst)
-    if k == 116:
-        with open("Thumb.txt", "w") as f:
-            f.truncate(0)
-            for i in range(1):
-                f.writelines(f"THUMB: {thumb_distance_lst}")
-    if k == 105:
-        with open("Index.txt", "w") as f:
-            f.truncate(0)
-            for i in range(1):
-                f.writelines(f"INDEX: {index_distance_lst}")
-    if k == 109:
-        with open("Middle.txt", "w") as f:
-            f.truncate(0)
-            for i in range(1):
-                f.writelines(f"MIDDLE: {middle_distance_lst}")
-    if k == 114:
-        with open("Ring.txt", "w") as f:
-            f.truncate(0)
-            for i in range(1):
-                f.writelines(f"RING: {ring_distance_lst}") 
-    if k == 112:
-        with open("Pinky.txt", "w") as f:
-            f.truncate(0)
-            for i in range(1):
-                f.writelines(f"PINKY: {pinky_distance_lst}") 
-    else:
-        try: 
-            os.remove("Thumb.txt")
-            os.remove("Index.txt")
-            os.remove("Middle.txt")
-            os.remove("Ring.txt")
-            os.remove("Pinky.txt")
-        except FileNotFoundError:
-            pass
+    pinky_distance_2 = pinky_distance_2.join(pinky_distance_lst)  
     return (
         thumb_distance_2,
         index_distance_2,
@@ -591,11 +557,26 @@ def MeasureDistance(process_result, k):
 
 def ShowVideoWhileMeasuring():
     global thumb_distance, index_distance, middle_distance, ring_distance, pinky_distance
-    color_t = (0, 0, 255)
-    color_i = (0, 0, 255)
-    color_m = (0, 0, 255)
-    color_r = (0, 0, 255)
-    color_p = (0, 0, 255)
+    if os.path.exists("Thumb.txt"):
+        color_t = (0,255,0)
+    else:
+        color_t = (0,0,255)
+    if os.path.exists("Index.txt"):
+        color_i = (0,255,0)
+    else:
+        color_i = (0,0,255)
+    if os.path.exists("Middle.txt"):
+        color_m = (0,255,0)
+    else:
+        color_m = (0,0,255)
+    if os.path.exists("Ring.txt"):
+        color_r = (0,255,0)
+    else:
+        color_r = (0,0,255)
+    if os.path.exists("Pinky.txt"):
+        color_p = (0,255,0)
+    else:
+        color_p = (0,0,255)
     while camera_video.isOpened():
         ret, frame = camera_video.read()
         if not ret:
@@ -609,12 +590,27 @@ def ShowVideoWhileMeasuring():
                 middle_distance_2,
                 ring_distance_2,
                 pinky_distance_2,
-            ) = MeasureDistance(process_result, 0)
-            thumb_distance = thumb_distance_2
-            index_distance = index_distance_2
-            middle_distance = middle_distance_2
-            ring_distance = ring_distance_2
-            pinky_distance = pinky_distance_2
+            ) = MeasureDistance(process_result)
+            thumb_distance = float(thumb_distance_2)
+            index_distance = float(index_distance_2)
+            middle_distance = float(middle_distance_2)
+            ring_distance = float(ring_distance_2)
+            pinky_distance = float(pinky_distance_2)
+            if os.path.exists("Thumb.txt"):
+                with open("Thumb.txt", "r") as f:
+                    thumb_distance = f.read()
+            if os.path.exists("Index.txt"):
+                with open("Index.txt", "r") as f:
+                    index_distance = f.read()
+            if os.path.exists("Middle.txt"):
+                with open("Middle.txt", "r") as f:
+                    middle_distance = f.read()
+            if os.path.exists("Ring.txt"):
+                with open("Ring.txt", "r") as f:
+                    ring_distance = f.read()
+            if os.path.exists("Pinky.txt"):
+                with open("Pinky.txt", "r") as f:
+                    pinky_distance = f.read()
             cv2.putText(
                 frame,
                 f"THUMB: {thumb_distance}",
@@ -662,34 +658,71 @@ def ShowVideoWhileMeasuring():
             )
         cv2.imshow("Measuring", frame)
         k = cv2.waitKey(1) & 0xFF
+        print(k)
         if k == 27:
             break
-        if k == 116:
+        elif k == 116:
             color_t = (0,255,0)
-            (
-                _,_,_,_,_
-            ) = MeasureDistance(process_result,116)
-        if k == 105:
+            with open("Thumb.txt", "w") as f:
+                f.truncate(0)
+                for i in range(1):
+                    f.writelines(f"{thumb_distance_2}")
+        elif k == 105:
             color_i = (0,255,0)
-            (
-                _,_,_,_,_
-            ) = MeasureDistance(process_result,105)
-        if k == 109:
+            with open("Index.txt", "w") as f:
+                f.truncate(0)
+                for i in range(1):
+                    f.writelines(f"{index_distance_2}")
+        elif k == 109:
             color_m = (0,255,0)
-            (
-                _,_,_,_,_
-            ) = MeasureDistance(process_result,109)
-        if k == 114:
+            with open("Middle.txt", "w") as f:
+                f.truncate(0)
+                for i in range(1):
+                    f.writelines(f"{middle_distance_2}")
+        elif k == 114:
             color_r = (0,255,0)
-            (
-                _,_,_,_,_
-            ) = MeasureDistance(process_result,114)
-        if k == 112:
+            with open("Ring.txt", "w") as f:
+                f.truncate(0)
+                for i in range(1):
+                    f.writelines(f"{ring_distance_2}")
+        elif k == 112:
             color_p = (0,255,0)
-            (
-                _,_,_,_,_
-            ) = MeasureDistance(process_result,112)
-        else: 
+            with open("Pinky.txt", "w") as f:
+                f.truncate(0)
+                for i in range(1):
+                    f.writelines(f"{pinky_distance_2}")
+        elif k == 8:
+            try: 
+                os.remove("Thumb.txt")
+                thumb_distance = float(thumb_distance_2)
+                color_t = (0,0,255)
+            except FileNotFoundError:
+                pass
+            try: 
+                os.remove("Index.txt")
+                index_distance = float(index_distance_2)
+                color_i = (0,0,255)
+            except FileNotFoundError:
+                pass
+            try: 
+                os.remove("Ring.txt")
+                ring_distance = float(ring_distance_2)
+                color_m = (0,0,255)
+            except FileNotFoundError:
+                pass
+            try: 
+                os.remove("Middle.txt")
+                middle_distance = float(middle_distance_2)
+                color_r = (0,0,255)
+            except FileNotFoundError:
+                pass
+            try: 
+                os.remove("Pinky.txt")
+                pinky_distance = float(pinky_distance_2)
+                color_p = (0,0,255)
+            except FileNotFoundError:
+                pass
+        else:
             pass
         
 
