@@ -11,7 +11,6 @@ import math
 from keras.src.saving.saving_api import load_model
 import numpy as np
 import os
-import time
 
 
 mp_hands = mp.solutions.hands
@@ -316,7 +315,7 @@ def predictGesturesD(image, process_result, fingers_statuses, count, draw=True):
     return output_image, hands_gestures, send_abs
 
 
-async def recognizeGesturesMode1():
+async def recognizeGesturesMode1D(mode):
     global camera_video, address, send_abs
     while camera_video.isOpened():
         ret, frame = camera_video.read()
@@ -336,33 +335,52 @@ async def recognizeGesturesMode1():
                 point_right,
                 point_straight,
             ) = countFingers(frame, process_result)
-            frame, gestures, send = predictGestures1(
-                frame,
-                process_result,
-                finger_statuses,
-                count,
-                count_thumb_up,
-                count_thumb_down,
-                point_left,
-                point_right,
-                point_straight,
-            )
+            if mode == "1":
+                frame, gestures, send = predictGestures1(
+                    frame,
+                    process_result,
+                    finger_statuses,
+                    count,
+                    count_thumb_up,
+                    count_thumb_down,
+                    point_left,
+                    point_right,
+                    point_straight,
+                )
+            elif mode == "D":
+                frame, gestures, send = predictGesturesD(
+                frame, process_result, finger_statuses, count
+                )
             send_lst = []
             send_lst.append(send)
-        cv2.imshow("Mode 1", frame)
+        if mode == "1":
+            cv2.imshow("Mode 1", frame)
+        elif mode == "D":
+            cv2.imshow("Mode D", frame)
         send_abs = ""
         send_abs = send_abs.join(send_lst)
         print(send_abs)
         k = cv2.waitKey(1) & 0xFF
-        if k == 27:
-            cv2.destroyWindow("Mode 1")
-            break
-        if k == 50:
-            cv2.destroyWindow("Mode 1")
-            await recognizeGesturesMode2()
-        if k == 68:
-            cv2.destroyWindow("Mode 1")
-            await recognizeGesturesModeD()
+        if mode == "1": 
+            if k == 27:
+                cv2.destroyWindow("Mode 1")
+                break
+            if k == 50:
+                cv2.destroyWindow("Mode 1")
+                await recognizeGesturesMode2()
+            if k == 68:
+                cv2.destroyWindow("Mode 1")
+                await recognizeGesturesMode1D(mode == "D")
+        elif mode == "D": 
+            if k == 27:
+                cv2.destroyWindow("Mode D")
+                break
+            if k == 49:
+                cv2.destroyWindow("Mode D")
+                await recognizeGesturesMode1D(mode == "1")
+            if k == 50:
+                cv2.destroyWindow("Mode D")
+                await recognizeGesturesMode2
 
 
 async def recognizeGesturesMode2():
@@ -435,47 +453,6 @@ async def recognizeGesturesMode2():
         if k == 68:
             cv2.destroyWindow("Mode 2")
             await recognizeGesturesModeD()
-
-
-async def recognizeGesturesModeD():
-    global camera_video, address, send_abs
-    while camera_video.isOpened():
-        ret, frame = camera_video.read()
-        if not ret:
-            continue
-        frame = cv2.flip(frame, 1)
-        frame, process_result = DetectandDrawHandsLandmarks(frame, hands_videos)
-        send_lst = []
-        if process_result.multi_hand_landmarks:
-            (
-                frame,
-                finger_statuses,
-                count,
-                count_thumb_up,
-                count_thumb_down,
-                point_left,
-                point_right,
-                point_straight,
-            ) = countFingers(frame, process_result)
-            frame, gestures, send = predictGesturesD(
-                frame, process_result, finger_statuses, count
-            )
-            send_lst = []
-            send_lst.append(send)
-        cv2.imshow("Drive Mode", frame)
-        send_abs = ""
-        send_abs = send_abs.join(send_lst)
-        print(send_abs)
-        k = cv2.waitKey(1) & 0xFF
-        if k == 27:
-            cv2.destroyWindow("Drive Mode")
-            break
-        if k == 50:
-            cv2.destroyWindow("Drive Mode")
-            await recognizeGesturesMode2()
-        if k == 49:
-            cv2.destroyWindow("Drive Mode")
-            await recognizeGesturesMode1()
 
 
 def getDegress(process_result):
@@ -555,7 +532,7 @@ def MeasureDistance(process_result):
     )
 
 
-def ShowVideoWhileMeasuring():
+def ShowVideoWhileMeasuring(mode):
     global thumb_distance, index_distance, middle_distance, ring_distance, pinky_distance
     if os.path.exists("Thumb.txt"):
         color_t = (0,255,0)
@@ -726,8 +703,10 @@ def ShowVideoWhileMeasuring():
 
 
         if os.path.exists("Thumb.txt") and os.path.exists("Index.txt") and os.path.exists("Middle.txt") and os.path.exists("Ring.txt") and os.path.exists("Pinky.txt"):
-            if k == 32:
-                asyncio.run(recognizeGesturesMode1_with_Measurement(thumb_distance, index_distance, middle_distance, ring_distance, pinky_distance))
+            if k == 32 and mode == "1":
+                asyncio.run(recognizeGesturesMode1D_with_Measurement(thumb_distance, index_distance, middle_distance, ring_distance, pinky_distance, mode = "1"))
+            if k == 32 and mode == "D":
+                asyncio.run(recognizeGesturesMode1D_with_Measurement(thumb_distance, index_distance, middle_distance, ring_distance, pinky_distance, mode = "D"))
         else:
             pass
 
@@ -829,7 +808,7 @@ def CustomcountFingers(image, process_result, thumb_distance, index_distance, mi
     )
 
 
-async def recognizeGesturesMode1_with_Measurement(thumb_distance, index_distance, middle_distance, ring_distance, pinky_distance): 
+async def recognizeGesturesMode1D_with_Measurement(thumb_distance, index_distance, middle_distance, ring_distance, pinky_distance, mode): 
     global camera_video, address, send_abs
     while camera_video.isOpened():
         ret, frame = camera_video.read()
@@ -849,33 +828,55 @@ async def recognizeGesturesMode1_with_Measurement(thumb_distance, index_distance
                 point_right,
                 point_straight,
             ) = CustomcountFingers(image = frame, process_result=process_result, thumb_distance = thumb_distance, index_distance=index_distance,middle_distance = middle_distance, ring_distance=ring_distance, pinky_distance =pinky_distance)
-            frame, gestures, send = predictGestures1(
-                frame,
-                process_result,
-                finger_statuses,
-                count,
-                count_thumb_up,
-                count_thumb_down,
-                point_left,
-                point_right,
-                point_straight,
-            )
+            if mode == "1":
+                frame, gestures, send = predictGestures1(
+                    frame,
+                    process_result,
+                    finger_statuses,
+                    count,
+                    count_thumb_up,
+                    count_thumb_down,
+                    point_left,
+                    point_right,
+                    point_straight,
+                )
+            elif mode == "D": 
+                frame, gestures, send = predictGesturesD(
+                    frame,
+                    process_result,
+                    finger_statuses,
+                    count
+                )
             send_lst = []
             send_lst.append(send)
-        cv2.imshow("Mode 1 with Measurement", frame)
+        if mode == "1":
+            cv2.imshow("Mode 1 with Measurement", frame)
+        elif mode == "D":
+            cv2.imshow("Mode D with Measurement", frame)
         send_abs = ""
         send_abs = send_abs.join(send_lst)
         print(send_abs)
         k = cv2.waitKey(1) & 0xFF
-        if k == 27:
-            cv2.destroyWindow("Mode 1 with Measurement")
-            break
-        if k == 50:
-            cv2.destroyWindow("Mode 1 with Measurement")
-            await recognizeGesturesMode2()
-        if k == 68:
-            cv2.destroyWindow("Mode 1 with Measurement")
-            await recognizeGesturesModeD()
+        if mode == "1":
+            if k == 27:
+                cv2.destroyWindow("Mode 1 with Measurement")
+                break
+            if k == 50:
+                cv2.destroyWindow("Mode 1 with Measurement")
+                await recognizeGesturesMode2()
+            if k == 68:
+                cv2.destroyWindow("Mode 1 with Measurement")
+                await recognizeGesturesMode1D(mode="D")
+        elif mode == "D":
+            if k == 27:
+                cv2.destroyWindow("Mode D with Measurement")
+                break
+            if k == 50:
+                cv2.destroyWindow("Mode D with Measurement")
+                await recognizeGesturesMode2()
+            if k == 49:
+                cv2.destroyWindow("Mode D with Measurement")
+                await recognizeGesturesMode1D(mode="1")
 
 
 def first_click():
@@ -989,7 +990,7 @@ def second_click():
         bg="#00b4d8",
         activebackground="#000000",
         activeforeground="#00b4d8",
-        command=lambda: asyncio.run(recognizeGesturesMode1()),
+        command=lambda: asyncio.run(recognizeGesturesMode1D(mode="1")),
     )
     default2.place(x=30, y=120)
 
@@ -1001,13 +1002,44 @@ def second_click():
         bg="#00b4d8",
         activebackground="#000000",
         activeforeground="#00b4d8",
-        command=ShowVideoWhileMeasuring,
+        command=lambda: ShowVideoWhileMeasuring(mode="1"),
     )
     measure2.place(x=35, y=280)
 
 
 def third_click():
-    pass
+    frame2 = ttk.Frame(root, width=490, height=480)
+    frame2.place(x=0, y=0)
+
+    img = Image.open("KCbot.jpg")
+    img = ImageTk.PhotoImage(img)
+    label = Label(frame2, image=img)
+    label.image = img
+    label.place(x=0, y=0)
+
+    default3 = Button(
+        frame2,
+        text="Continue with default measurement",
+        font=("arial bold", 18),
+        fg="#000000",
+        bg="#00b4d8",
+        activebackground="#000000",
+        activeforeground="#00b4d8",
+        command=lambda: asyncio.run(recognizeGesturesMode1D(mode="D")),
+    )
+    default3.place(x=30, y=120)
+
+    measure3 = Button(
+        frame2,
+        text="Customize your own measurement",
+        font=("arial bold", 18),
+        fg="#000000",
+        bg="#00b4d8",
+        activebackground="#000000",
+        activeforeground="#00b4d8",
+        command=lambda: ShowVideoWhileMeasuring(mode="D"),
+    )
+    measure3.place(x=35, y=280)
 
 
 root = tk.Tk()
