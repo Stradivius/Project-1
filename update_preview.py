@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import *
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from PIL import Image
 from PIL import ImageTk
 import asyncio
@@ -8,8 +8,6 @@ from bleak import BleakClient, BleakScanner
 import cv2
 import mediapipe as mp
 import math
-from keras.src.saving.saving_api import load_model
-import numpy as np
 import os
 
 
@@ -240,12 +238,12 @@ def predictGestures1(
         if draw:
             cv2.putText(
                 output_image,
-                f"{hands_gestures[hand_label.upper()]}: {ang}",
+                f"{hands_gestures[hand_label.upper()]} - {send_abs}",
                 (10, 100),
                 cv2.FONT_HERSHEY_PLAIN,
-                10,
+                7,
                 color,
-                5,
+                3,
             )
     return output_image, hands_gestures, send_abs
 
@@ -305,12 +303,12 @@ def predictGesturesD(image, process_result, fingers_statuses, count, draw=True):
         if draw:
             cv2.putText(
                 output_image,
-                f"{hands_gestures[hand_label.upper()]}: {ang}",
+                f"{hands_gestures[hand_label.upper()]}: {ang} - {send_abs}",
                 (10, 100),
                 cv2.FONT_HERSHEY_PLAIN,
-                10,
+                7,
                 color,
-                5,
+                3,
             )
     return output_image, hands_gestures, send_abs
 
@@ -356,7 +354,7 @@ async def recognizeGesturesMode1D(mode):
         if mode == "1":
             cv2.imshow("Mode 1", frame)
         elif mode == "D":
-            cv2.imshow("Mode D", frame)
+            cv2.imshow("Driving Mode", frame)
         send_abs = ""
         send_abs = send_abs.join(send_lst)
         print(send_abs)
@@ -368,91 +366,23 @@ async def recognizeGesturesMode1D(mode):
             if k == 50:
                 cv2.destroyWindow("Mode 1")
                 await recognizeGesturesMode2()
-            if k == 68:
+            if k == 68 or k ==100 :
                 cv2.destroyWindow("Mode 1")
                 await recognizeGesturesMode1D(mode == "D")
         elif mode == "D": 
             if k == 27:
-                cv2.destroyWindow("Mode D")
+                cv2.destroyWindow("Driving Mode")
                 break
             if k == 49:
-                cv2.destroyWindow("Mode D")
+                cv2.destroyWindow("Driving Mode")
                 await recognizeGesturesMode1D(mode == "1")
             if k == 50:
-                cv2.destroyWindow("Mode D")
+                cv2.destroyWindow("Driving Mode")
                 await recognizeGesturesMode2
 
 
 async def recognizeGesturesMode2():
-    global hands, mp_hands, mp_drawing, address, camera_video
-    model = load_model("mp_hand_gesture")
-    f = open("gesture.names", "r")
-    classNames = f.read().split("\n")
-    f.close()
-    print(classNames)
-    while True:
-        _, frame = camera_video.read()
-        x, y, c = frame.shape
-        frame = cv2.flip(frame, 1)
-        frame1, _ = DetectandDrawHandsLandmarks(frame, hands_videos)
-        framergb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        result = hands.process(framergb)
-        className = ""
-        send = []
-        if result.multi_hand_landmarks:
-            landmarks = []
-            for handslms in result.multi_hand_landmarks:
-                for lm in handslms.landmark:
-                    lmx = int(lm.x * x)
-                    lmy = int(lm.y * y)
-                    landmarks.append([lmx, lmy])
-                    prediction = model.predict([landmarks])
-                    classID = np.argmax(prediction)
-                    className = classNames[classID]
-                send_lst_c = []
-                classNamedict = {
-                    "okay": "O",
-                    "peace": "P",
-                    "thumbs up": "U",
-                    "thumbs down": "D",
-                    "call me": "C",
-                    "stop": "S",
-                    "rock": "Y",
-                    "live long": "X",
-                    "fist": "J",
-                    "smile": "M",
-                }
-                if className in classNamedict:
-                    send1 = classNamedict[className]
-                    send_lst_c = []
-                    send_lst_c.append(send1)
-                send2 = ""
-                send2 = send2.join(send_lst_c)
-                send = []
-                send.append(send2)
-        cv2.putText(
-            frame1,
-            className.upper(),
-            (10, 100),
-            cv2.FONT_HERSHEY_PLAIN,
-            10,
-            (0, 255, 0),
-            5,
-        )
-        cv2.imshow("Mode 2", frame1)
-        send_abs = ""
-        send_abs = send_abs.join(send)
-        print(send_abs)
-        k = cv2.waitKey(1) & 0xFF
-        if k == 27:
-            cv2.destroyWindow("Mode 2")
-            break
-        if k == 49:
-            cv2.destroyWindow("Mode 2")
-            await recognizeGesturesMode1()
-        if k == 68:
-            cv2.destroyWindow("Mode 2")
-            await recognizeGesturesModeD()
+    messagebox.showwarning(title="Cảnh báo", message="Chế độ đang được làm lại")
 
 
 def getDegress(process_result):
@@ -554,6 +484,11 @@ def ShowVideoWhileMeasuring(mode):
         color_p = (0,255,0)
     else:
         color_p = (0,0,255)
+    messagebox.showinfo(
+        title = "Cách lấy thông số", 
+        message="1. Đưa tay vào khung hình để xuất hiện các thông số\n2. Đưa từng ngón tay đến vị trí muốn máy tính coi là đã mở\n3. Nhấn:\n    T (Thumbs) để lấy thông số ngón cái\n    I (Index) để lấy thông số ngón trỏ\n    M (Middle) để lấy thông số ngón giữa\n    R (Ring) để lấy thông số ngón áp út\n    P (Pinky) để lấy thông số ngón út\n4. Để xóa các thông số có sẵn và đo lại, nhấn phím [Backspace]\n5. Sau khi lấy thông số cả năm ngón, nhấn phím cách để tiếp tục", 
+        type = "ok"
+     )
     while camera_video.isOpened():
         ret, frame = camera_video.read()
         if not ret:
@@ -637,31 +572,31 @@ def ShowVideoWhileMeasuring(mode):
         k = cv2.waitKey(1) & 0xFF
         if k == 27:
             break
-        elif k == 116:
+        elif k == 116 or k == 84:
             color_t = (0,255,0)
             with open("Thumb.txt", "w") as f:
                 f.truncate(0)
                 for i in range(1):
                     f.writelines(f"{thumb_distance_2}")
-        elif k == 105:
+        elif k == 105 or k == 73:
             color_i = (0,255,0)
             with open("Index.txt", "w") as f:
                 f.truncate(0)
                 for i in range(1):
                     f.writelines(f"{index_distance_2}")
-        elif k == 109:
+        elif k == 109 or k == 77:
             color_m = (0,255,0)
             with open("Middle.txt", "w") as f:
                 f.truncate(0)
                 for i in range(1):
                     f.writelines(f"{middle_distance_2}")
-        elif k == 114:
+        elif k == 114 or k == 82:
             color_r = (0,255,0)
             with open("Ring.txt", "w") as f:
                 f.truncate(0)
                 for i in range(1):
                     f.writelines(f"{ring_distance_2}")
-        elif k == 112:
+        elif k == 112 or k == 80:
             color_p = (0,255,0)
             with open("Pinky.txt", "w") as f:
                 f.truncate(0)
@@ -763,9 +698,7 @@ def CustomcountFingers(image, process_result, thumb_distance, index_distance, mi
         if (index_mcp_y - index_tip_y) > index_distance and count[hand_label.upper()] == 1:
             fingers_statuses[hand_label.upper() + "_INDEX"] = True
             point_straight[hand_label.upper()] += 1
-        if (hand_label.upper() == "RIGHT" and (thumb_mcp_x - thumb_tip_x > thumb_distance)) or (
-            hand_label.upper() == "LEFT" and (thumb_tip_x - thumb_mcp_x)
-        ) > thumb_distance:
+        if (hand_label.upper() == "RIGHT" and (thumb_mcp_x - thumb_tip_x > thumb_distance)) or (hand_label.upper() == "LEFT" and (thumb_tip_x - thumb_mcp_x > thumb_distance)):
             fingers_statuses[hand_label.upper() + "_THUMB"] = True
             count[hand_label.upper()] += 1
         if (thumb_mcp_y - thumb_tip_y > thumb_distance) and count[hand_label.upper()] == 0:
@@ -777,22 +710,22 @@ def CustomcountFingers(image, process_result, thumb_distance, index_distance, mi
         if (
             hand_label.upper() == "RIGHT"
             and (index_mcp_x - index_tip_x > index_distance)
-            and count[hand_label.upper()] == 1
+            and count[hand_label.upper()] == 0
         ) or (
-            hand_label.upper() == "RIGHT"
-            and (index_tip_x - index_mcp_x > index_distance)
-            and count[hand_label.upper()] == 1
+            hand_label.upper() == "LEFT"
+            and (index_mcp_x - index_tip_x > index_distance)
+            and count[hand_label.upper()] == 0
         ):
             fingers_statuses[hand_label.upper() + "_INDEX"] = True
             point_left[hand_label.upper()] += 1
         elif (
             hand_label.upper() == "RIGHT"
             and (index_tip_x - index_mcp_x > index_distance)
-            and count[hand_label.upper()] == 1
+            and count[hand_label.upper()] == 0
         ) or (
             hand_label.upper() == "LEFT"
-            and (index_mcp_x - index_tip_x > index_distance)
-            and count[hand_label.upper()] == 1
+            and (index_tip_x - index_mcp_x > index_distance)
+            and count[hand_label.upper()] == 0
         ):
             fingers_statuses[hand_label.upper() + "_INDEX"] = True
             point_right[hand_label.upper()] += 1
@@ -852,7 +785,7 @@ async def recognizeGesturesMode1D_with_Measurement(thumb_distance, index_distanc
         if mode == "1":
             cv2.imshow("Mode 1 with Measurement", frame)
         elif mode == "D":
-            cv2.imshow("Mode D with Measurement", frame)
+            cv2.imshow("Driving Mode with Measurement", frame)
         send_abs = ""
         send_abs = send_abs.join(send_lst)
         print(send_abs)
@@ -869,13 +802,13 @@ async def recognizeGesturesMode1D_with_Measurement(thumb_distance, index_distanc
                 await recognizeGesturesMode1D(mode="D")
         elif mode == "D":
             if k == 27:
-                cv2.destroyWindow("Mode D with Measurement")
+                cv2.destroyWindow("Driving Mode with Measurement")
                 break
             if k == 50:
-                cv2.destroyWindow("Mode D with Measurement")
+                cv2.destroyWindow("Driving Mode with Measurement")
                 await recognizeGesturesMode2()
             if k == 49:
-                cv2.destroyWindow("Mode D with Measurement")
+                cv2.destroyWindow("Driving Mode with Measurement")
                 await recognizeGesturesMode1D(mode="1")
 
 
@@ -915,7 +848,7 @@ def first_click():
 
     option3 = Button(
         frame1,
-        text="Drive Mode",
+        text="Driving Mode",
         font=("arial bold", 18),
         fg="#000000",
         bg="#00b4d8",
@@ -923,7 +856,19 @@ def first_click():
         activeforeground="#00b4d8",
         command=third_click,
     )
-    option3.place(x=160, y=320)
+    option3.place(x=140, y=320)
+
+    exitbutton = Button(
+        frame1,
+        text="Back",
+        font=("arial", 12),
+        fg="#000000",
+        bg="#00b4d8",
+        activebackground="#000000",
+        activeforeground="#00b4d8",
+        command=lambda: DeleteFrame(frame1),
+    )
+    exitbutton.place(x=20, y=20)
 
 
 def info():
@@ -972,6 +917,10 @@ def Connect():
     var2.set(1)
 
 
+def DeleteFrame(frame: ttk.Frame):
+    frame.destroy()
+
+
 def second_click():
     frame2 = ttk.Frame(root, width=490, height=480)
     frame2.place(x=0, y=0)
@@ -1005,6 +954,18 @@ def second_click():
         command=lambda: ShowVideoWhileMeasuring(mode="1"),
     )
     measure2.place(x=35, y=280)
+
+    exitbutton = Button(
+        frame2,
+        text="Back",
+        font=("arial", 12),
+        fg="#000000",
+        bg="#00b4d8",
+        activebackground="#000000",
+        activeforeground="#00b4d8",
+        command=lambda: DeleteFrame(frame2),
+    )
+    exitbutton.place(x=20, y=20)
 
 
 def third_click():
@@ -1040,6 +1001,18 @@ def third_click():
         command=lambda: ShowVideoWhileMeasuring(mode="D"),
     )
     measure3.place(x=35, y=280)
+
+    exitbutton = Button(
+        frame2,
+        text="Back",
+        font=("arial", 12),
+        fg="#000000",
+        bg="#00b4d8",
+        activebackground="#000000",
+        activeforeground="#00b4d8",
+        command=lambda: DeleteFrame(frame2),
+    )
+    exitbutton.place(x=20, y=20)
 
 
 root = tk.Tk()
