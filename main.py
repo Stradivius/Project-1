@@ -134,8 +134,8 @@ def countFingers(image, process_result):
             and (index_mcp_x - index_tip_x > 0.07)
             and count[hand_label.upper()] == 1
         ) or (
-            hand_label.upper() == "RIGHT"
-            and (index_tip_x - index_mcp_x > 0.07)
+            hand_label.upper() == "LEFT"
+            and (index_mcp_x - index_tip_x > 0.07)
             and count[hand_label.upper()] == 1
         ):
             fingers_statuses[hand_label.upper() + "_INDEX"] = True
@@ -146,7 +146,7 @@ def countFingers(image, process_result):
             and count[hand_label.upper()] == 1
         ) or (
             hand_label.upper() == "LEFT"
-            and (index_mcp_x - index_tip_x > 0.07)
+            and (index_tip_x - index_mcp_x > 0.07)
             and count[hand_label.upper()] == 1
         ):
             fingers_statuses[hand_label.upper() + "_INDEX"] = True
@@ -350,7 +350,7 @@ async def recognizeGesturesMode1D(mode):
         while camera_video.isOpened():
             ret, frame = camera_video.read()
             new_frame_time = time.time()
-            fps = 1/(new_frame_time-prev_frame_time) 
+            fps = round(1/(new_frame_time-prev_frame_time)) 
             prev_frame_time = new_frame_time
             if not ret:
                 continue
@@ -446,7 +446,7 @@ async def recognizeGesturesMode2():
             framergb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             result = hands.process(framergb)
             new_frame_time = time.time()
-            fps = 1/(new_frame_time-prev_frame_time) 
+            fps = round(1/(new_frame_time-prev_frame_time)) 
             prev_frame_time = new_frame_time
             className = ""
             send = []
@@ -706,6 +706,7 @@ def ShowVideoWhileMeasuring(mode):
         cv2.imshow("Measuring", frame)
         k = cv2.waitKey(1) & 0xFF
         if k == 27:
+            cv2.destroyWindow("Measuring")
             break
         elif k == 116 or k == 84:
             color_t = (0,255,0)
@@ -882,7 +883,7 @@ async def recognizeGesturesMode1D_with_Measurement(thumb_distance, index_distanc
         while camera_video.isOpened():
             ret, frame = camera_video.read()
             new_frame_time = time.time()
-            fps = 1/(new_frame_time-prev_frame_time) 
+            fps = round(1/(new_frame_time-prev_frame_time)) 
             prev_frame_time = new_frame_time
             if not ret:
                 continue

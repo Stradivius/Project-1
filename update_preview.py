@@ -9,11 +9,13 @@ import cv2
 import mediapipe as mp
 import math
 import os
-from mediapipe.python.solutions import hands, drawing_utils
+from keras.src.models import load_model
+import numpy as np
+import time
 
 
 mp_hands = mp.solutions.hands
-hand = mp_hands.Hands(
+hands = mp_hands.Hands(
     static_image_mode=True, max_num_hands=1, min_detection_confidence=0.5
 )
 hands_videos = mp_hands.Hands(
@@ -39,6 +41,12 @@ index_distance = 5.0
 middle_distance = 5.0
 ring_distance = 5.0
 pinky_distance = 5.0
+
+
+
+prev_frame_time = 0
+new_frame_time = 0
+fps = 0
 
 
 def DetectandDrawHandsLandmarks(image, hands):
@@ -126,19 +134,19 @@ def countFingers(image, process_result):
             and (index_mcp_x - index_tip_x > 0.07)
             and count[hand_label.upper()] == 1
         ) or (
-            hand_label.upper() == "RIGHT"
-            and (index_tip_x - index_mcp_x > 0.07)
+            hand_label.upper() == "LEFT"
+            and (index_mcp_x - index_tip_x > 0.07)
             and count[hand_label.upper()] == 1
         ):
             fingers_statuses[hand_label.upper() + "_INDEX"] = True
             point_left[hand_label.upper()] += 1
         elif (
             hand_label.upper() == "RIGHT"
-            and (index_tip_x - index_mcp_x > 0.07)
+            and (index_tip_x - index_mcp_x > 0.06)
             and count[hand_label.upper()] == 1
         ) or (
             hand_label.upper() == "LEFT"
-            and (index_mcp_x - index_tip_x > 0.07)
+            and (index_tip_x - index_mcp_x > 0.06)
             and count[hand_label.upper()] == 1
         ):
             fingers_statuses[hand_label.upper() + "_INDEX"] = True
@@ -167,6 +175,7 @@ def predictGestures1(
     point_straight,
     draw=True,
 ):
+    global fps
     output_image = image.copy()
     hands_gestures = {"RIGHT": "UNKNOWN", "LEFT": "UNKNOWN"}
     for hand_index, hand_info in enumerate(process_result.multi_handedness):
@@ -246,10 +255,20 @@ def predictGestures1(
                 color,
                 3,
             )
+            cv2.putText(
+                output_image,
+                f"FPS: {fps}",
+                (10, 200),
+                cv2.FONT_HERSHEY_PLAIN,
+                7,
+                color,
+                3,
+            )
     return output_image, hands_gestures, send_abs
 
 
 def predictGesturesD(image, process_result, fingers_statuses, count, draw=True):
+    global fps
     output_image = image.copy()
     hands_gestures = {"RIGHT": "UNKNOWN", "LEFT": "UNKNOWN"}
     color = (0, 0, 255)
@@ -295,7 +314,18 @@ def predictGesturesD(image, process_result, fingers_statuses, count, draw=True):
                     send = ang_comparison[k]
                     send_lst = []
                     send_lst.append(send)
-        if hands_gestures[hand_label.upper()] == "UNKNOWN":
+        elif (
+            count[hand_label.upper()] == 3
+            and fingers_statuses[hand_label.upper() + "_THUMB"]
+            and fingers_statuses[hand_label.upper() + "_INDEX"]
+            and fingers_statuses[hand_label.upper() + "_PINKY"]
+        ):
+            hands_gestures[hand_label.upper()] = "ROCK"
+            color = (0, 255, 0)
+            send = "2"
+            send_lst = []
+            send_lst.append(send)
+        elif hands_gestures[hand_label.upper()] == "UNKNOWN":
             send = "1"
             send_lst = []
             send_lst.append(send)
@@ -315,12 +345,24 @@ def predictGesturesD(image, process_result, fingers_statuses, count, draw=True):
 
 
 async def recognizeGesturesMode1D(mode):
-    global camera_video, address, send_abs
+    global camera_video, address, send_abs, new_frame_time, prev_frame_time, fps
     while camera_video.isOpened():
         ret, frame = camera_video.read()
+        new_frame_time = time.time()
+        fps = round(1/(new_frame_time-prev_frame_time)) 
+        prev_frame_time = new_frame_time
         if not ret:
             continue
         frame = cv2.flip(frame, 1)
+        cv2.putText(
+            frame,
+            f"FPS: {fps}",
+            (10, 200),
+            cv2.FONT_HERSHEY_PLAIN,
+            7,
+            (0,255,0),
+            3,
+        )
         frame, process_result = DetectandDrawHandsLandmarks(frame, hands_videos)
         send_lst = []
         if process_result.multi_hand_landmarks:
@@ -383,7 +425,87 @@ async def recognizeGesturesMode1D(mode):
 
 
 async def recognizeGesturesMode2():
-    messagebox.showwarning(title="Cảnh báo", message="Chế độ đang được làm lại")
+    global hands, mp_hands, mp_drawing, address, camera_video, new_frame_time, prev_frame_time
+    model = load_model("mp_hand_gesture")
+    f = open("gesture.names", "r")
+    classNames = f.read().split("\n")
+    f.close()
+    print(classNames)
+    while camera_video.isOpened():
+        _, frame = camera_video.read()
+        x, y, c = frame.shape
+        frame = cv2.flip(frame, 1)
+        frame1, _ = DetectandDrawHandsLandmarks(frame, hands_videos)
+        framergb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        result = hands.process(framergb)
+        new_frame_time = time.time()
+        fps = round(1/(new_frame_time-prev_frame_time) )
+        prev_frame_time = new_frame_time
+        className = ""
+        send = []
+        if result.multi_hand_landmarks:
+            landmarks = []
+            for handslms in result.multi_hand_landmarks:
+                for lm in handslms.landmark:
+                    lmx = int(lm.x * x)
+                    lmy = int(lm.y * y)
+                    landmarks.append([lmx, lmy])
+                prediction = model.predict([landmarks])
+                classID = np.argmax(prediction)
+                className = classNames[classID]
+                send_lst_c = []
+                classNamedict = {
+                    "okay": "O",
+                    "peace": "P",
+                    "thumbs up": "U",
+                    "thumbs down": "D",
+                    "call me": "C",
+                    "stop": "S",
+                    "rock": "Y",
+                    "live long": "X",
+                    "fist": "J",
+                    "smile": "M",
+                }
+                if className in classNamedict:
+                    send1 = classNamedict[className]
+                    send_lst_c = []
+                    send_lst_c.append(send1)
+                send2 = ""
+                send2 = send2.join(send_lst_c)
+                send = []
+                send.append(send2)
+        cv2.putText(
+            frame1,
+            className.upper(),
+            (10, 100),
+            cv2.FONT_HERSHEY_PLAIN,
+            7,
+            (0, 255, 0),
+            3,
+        )
+        cv2.putText(
+            frame1,
+            f"FPS: {fps}",
+            (10, 200),
+            cv2.FONT_HERSHEY_PLAIN,
+            7,
+            (0, 255, 0),
+            3,
+        )
+        cv2.imshow("Mode 2", frame1)
+        send_abs = ""
+        send_abs = send_abs.join(send)
+        print(send_abs)
+        k = cv2.waitKey(1) & 0xFF
+        if k == 27:
+            cv2.destroyWindow("Mode 2")
+            break
+        if k == 49:
+            cv2.destroyWindow("Mode 2")
+            await recognizeGesturesMode1D(mode = "1")
+        if k == 68:
+            cv2.destroyWindow("Mode 2")
+            await recognizeGesturesMode1D(mode = "D")
 
 
 def getDegress(process_result):
@@ -572,6 +694,7 @@ def ShowVideoWhileMeasuring(mode):
         cv2.imshow("Measuring", frame)
         k = cv2.waitKey(1) & 0xFF
         if k == 27:
+            cv2.destroyWindow("Measuring")
             break
         elif k == 116 or k == 84:
             color_t = (0,255,0)
@@ -743,9 +866,12 @@ def CustomcountFingers(image, process_result, thumb_distance, index_distance, mi
 
 
 async def recognizeGesturesMode1D_with_Measurement(thumb_distance, index_distance, middle_distance, ring_distance, pinky_distance, mode): 
-    global camera_video, address, send_abs
+    global camera_video, address, send_abs, fps, prev_frame_time, new_frame_time
     while camera_video.isOpened():
         ret, frame = camera_video.read()
+        new_frame_time = time.time()
+        fps = round(1/(new_frame_time-prev_frame_time)) 
+        prev_frame_time = new_frame_time
         if not ret:
             continue
         frame = cv2.flip(frame, 1)
@@ -913,7 +1039,7 @@ def Connect():
             bg="#00b4d8",
         )
         label2.place(x=180, y=160)
-    else: """
+    else:  """
     address = address[0:17]
     var2.set(1)
 
